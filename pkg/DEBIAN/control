@@ -1,0 +1,9 @@
+Package: gosh
+Version: 0.0.0
+Architecture: amd64
+Maintainer: Andrew Nehalchuk <nehalandrew@gmail.com>
+Depends: openssh-server, adduser
+Description: Custom Go CLI Shell
+ This package installs gosh, a custom command-line interface
+ written in Go, and configures it as the default shell for a dedicated user.
+ It also ensures that OpenSSH server is installed.

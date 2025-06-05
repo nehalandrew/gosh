@@ -1,0 +1,30 @@
+#!/bin/bash
+set -e
+
+USERNAME="gosh"
+
+case "$1" in
+    remove|purge) # "purge" also removes configuration files
+        echo "Preparing to remove user '$USERNAME' associated with gosh-deb..."
+        # Check if user exists before trying to remove
+        if id "$USERNAME" &>/dev/null; then
+            echo "Removing user '$USERNAME'..."
+            # --remove-home: also removes the home directory
+            userdel --remove-home "$USERNAME" || echo "Warning: Failed to remove user '$USERNAME' or their home directory. Manual cleanup might be needed."
+            echo "User '$USERNAME' removed."
+        else
+            echo "User '$USERNAME' does not exist. No user removal needed."
+        fi
+    ;;
+
+    upgrade|deconfigure|failed-upgrade)
+        # Handle other cases if necessary
+    ;;
+
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+exit 0

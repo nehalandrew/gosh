@@ -1,0 +1,93 @@
+name: Build and Publish Debian Package
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-path: ${{ steps.set-artifact-path.outputs.path }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Ensure Go dependencies
+        run: go mod tidy
+
+      - name: Build Go binary
+        run: go build -v -o gosh main.go
+
+      - name: Create Debian package structure
+        run: |
+          mkdir -p pkg/usr/local/bin
+          mv gosh pkg/usr/local/bin/gosh
+          # sed -i "s/VERSION_PLACEHOLDER/${{ github.ref_name }}/g" pkg/DEBIAN/control
+
+      - name: Set artifact path
+        id: set-artifact-path
+        run: echo "path=pkg" >> "$GITHUB_OUTPUT"
+
+      - name: Upload package directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: gosh-pkg-dir
+          path: pkg/
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download package directory
+        uses: actions/download-artifact@v4
+        with:
+          name: gosh-pkg-dir
+          path: pkg
+
+      - name: Insert version into control file
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "s/0.0.0/$VERSION/g" pkg/DEBIAN/control
+
+      - name: Create update permissions
+        run: |
+          sudo chmod -R 755 pkg/usr/local/bin
+          sudo chmod -R 644 pkg/DEBIAN/control
+          sudo chmod 0775 pkg/DEBIAN/postinst
+          sudo chmod 0775 pkg/DEBIAN/prerm
+
+      - name: Build Debian package
+        run: dpkg-deb --build pkg gosh.deb
+
+      - name: Lint package (non-blocking)
+        run: |
+          sudo apt update && sudo apt install -y lintian
+          lintian gosh.deb || echo "Lintian warnings ignored."
+
+      - name: Upload .deb as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gosh-debian
+          path: gosh.deb
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: gosh.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

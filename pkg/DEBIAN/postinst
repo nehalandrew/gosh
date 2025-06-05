@@ -1,0 +1,70 @@
+#!/bin/bash
+set -e # Exit immediately if a command exits with a non-zero status.
+
+# Define the username and the shell path
+USERNAME="gosh"
+SHELL_PATH="/usr/local/bin/gosh"
+HOME_DIR="/home/$USERNAME"
+
+case "$1" in
+    configure)
+        echo "Configuring user '$USERNAME' for gosh..."
+
+        # Check if user already exists
+        if id "$USERNAME" &>/dev/null; then
+            echo "User '$USERNAME' already exists. Ensuring shell is correct."
+            # Ensure the shell is set correctly, even if the user exists
+            chsh -s "$SHELL_PATH" "$USERNAME"
+            if [ ! -d "$HOME_DIR" ]; then
+                echo "Home directory $HOME_DIR for user $USERNAME does not exist. Creating..."
+                mkdir -p "$HOME_DIR"
+                chown "$USERNAME":"$USERNAME" "$HOME_DIR"
+                chmod 700 "$HOME_DIR"
+            fi
+        else
+            echo "Creating user '$USERNAME' with shell '$SHELL_PATH'..."
+            # Create the user with the custom shell, a home directory, and no password (for SSH key auth)
+            # -m: create home directory
+            # -s: set login shell
+            # -d: home directory path
+            # --disabled-password: User cannot log in with a password, good for SSH key-only access
+            # --gecos "": User information (GECOS field), left blank
+            adduser --system --group --shell "$SHELL_PATH" --home "$HOME_DIR" --no-create-home --disabled-password --quiet "$USERNAME" || true
+            
+            # Some systems might not create home with --system, ensure it exists
+            if [ ! -d "$HOME_DIR" ]; then
+                echo "Home directory $HOME_DIR for user $USERNAME does not exist. Creating..."
+                mkdir -p "$HOME_DIR"
+                chown "$USERNAME":"$USERNAME" "$HOME_DIR"
+                chmod 700 "$HOME_DIR"
+
+                # Optionally, create a .ssh directory and authorized_keys file
+                mkdir -p "$HOME_DIR/.ssh"
+                touch "$HOME_DIR/.ssh/authorized_keys"
+                chown -R "$USERNAME":"$USERNAME" "$HOME_DIR/.ssh"
+                chmod 700 "$HOME_DIR/.ssh"
+                chmod 600 "$HOME_DIR/.ssh/authorized_keys"
+                echo "Created $HOME_DIR/.ssh and authorized_keys for SSH key authentication."
+            fi
+            echo "User '$USERNAME' created."
+        fi
+
+        # Ensure the shell is listed in /etc/shells if not already present
+        if ! grep -qxF "$SHELL_PATH" /etc/shells; then
+            echo "Adding $SHELL_PATH to /etc/shells"
+            echo "$SHELL_PATH" >> /etc/shells
+        fi
+    ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+        # Handle failures if necessary
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+# Standard exit for Debian scripts
+exit 0
