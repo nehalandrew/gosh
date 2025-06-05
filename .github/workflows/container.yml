@@ -3,9 +3,13 @@ name: Build and Push Docker Image to GHCR
 on:
   push:
     branches:
-      - '**'  # All branches including main
+      - '**'
     tags:
-      - '*'   # All tags
+      - '*'
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build-and-push:
