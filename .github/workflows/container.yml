@@ -6,6 +6,11 @@ on:
       - '**'
     tags:
       - '*'
+    paths:
+      - '**/*.go'   # Only run when .go files are changed
+      - 'go.mod'
+      - 'go.sum'
+      - 'Dockerfile'
 
 permissions:
   contents: read
